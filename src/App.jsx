@@ -127,6 +127,9 @@ function playTone(freq, duration, type = 'sine') {
 }
 
 export default function App() {
+  const [loading, setLoading] = useState(true);
+  const [splashVisible, setSplashVisible] = useState(true);
+
   const [mode, setMode] = useState('daily');
   const [difficultyKey, setDifficultyKey] = useState('NORMAL');
   const diffConfig = DIFFICULTIES[difficultyKey];
@@ -145,10 +148,24 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [stats, setStats] = useState({ played: 0, won: 0, streak: 0 });
 
-  // Nouveaux états pour l'effet Cyberpunk
   const [isDecoding, setIsDecoding] = useState(false);
   const [scrambleKey, setScrambleKey] = useState([]);
-  const [laserStatus, setLaserStatus] = useState('idle'); // 'idle' | 'decoding' | 'error' | 'success'
+  const [laserStatus, setLaserStatus] = useState('idle');
+
+  useEffect(() => {
+    const fadeTimer = setTimeout(() => {
+      setLoading(false);
+    }, 2000);
+
+    const removeTimer = setTimeout(() => {
+      setSplashVisible(false);
+    }, 2700);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(removeTimer);
+    };
+  }, []);
 
   const initGame = (targetMode = mode, targetDiff = difficultyKey) => {
     const cfg = DIFFICULTIES[targetDiff];
@@ -220,14 +237,13 @@ export default function App() {
   const handleSubmit = () => {
     if (gameStatus !== 'playing' || currentGuess.length !== diffConfig.length || isDecoding) return;
 
-    // Début de l'animation de décodage (Matrix)
     setIsDecoding(true);
     setLaserStatus('decoding');
     if (navigator.vibrate) navigator.vibrate([15, 30, 15, 30]);
 
     let frames = 0;
-    const maxFrames = 15; // Environ 500ms d'animation
-    
+    const maxFrames = 15;
+
     const decodingInterval = setInterval(() => {
       frames++;
       setScrambleKey(Array.from({ length: diffConfig.length }, () => Math.floor(Math.random() * 10).toString()));
@@ -274,10 +290,9 @@ export default function App() {
       return;
     }
 
-    // Flash d'erreur puis retour à l'état idle
     setLaserStatus('error');
-    setTimeout(() => { if(gameStatus === 'playing') setLaserStatus('idle') }, 600);
-    
+    setTimeout(() => { if (gameStatus === 'playing') setLaserStatus('idle'); }, 600);
+
     if (soundEnabled) playTone(220, 0.1, 'square');
     if (navigator.vibrate) navigator.vibrate(25);
 
@@ -298,7 +313,7 @@ export default function App() {
     const grid = attempts.map(att => att.evaluation.map(e => emojis[e]).join('')).join('\n');
     const score = gameStatus === 'won' ? `${attempts.length}/${diffConfig.maxAttempts}` : `X/${diffConfig.maxAttempts}`;
     const text = `« CODE:BARRE » ${mode === 'daily' ? `#${challengeNo}` : '(Entraînement)'} [${diffConfig.name}]\nRésultat : ${score}\n${grid}`;
-    
+
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text);
       setCopied(true);
@@ -306,7 +321,6 @@ export default function App() {
     }
   };
 
-  // Attribution dynamique des classes du laser en fonction du statut
   let laserClasses = "absolute left-0 right-0 pointer-events-none ";
   if (laserStatus === 'idle') laserClasses += "h-[2px] bg-red-500 shadow-[0_0_12px_3px_rgba(239,68,68,0.95)] animate-scanner-idle";
   else if (laserStatus === 'decoding') laserClasses += "h-[3px] bg-cyan-400 shadow-[0_0_15px_4px_rgba(34,211,238,1)] animate-scanner-decoding";
@@ -315,13 +329,25 @@ export default function App() {
 
   return (
     <>
-      {/* Brouillage écran CRT */}
       <div className="crt-overlay"></div>
+
+      {splashVisible && (
+        <div
+          className={`fixed inset-0 bg-black flex items-center justify-center p-4 z-50 transition-all duration-700 ease-out pointer-events-none ${
+            loading ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+          }`}
+        >
+          <img
+            src="/splash.png"
+            alt="Initialisation..."
+            className="max-w-sm max-h-[90vh] w-auto h-auto object-contain rounded-[2rem] shadow-[0_0_40px_rgba(0,255,0,0.3)] transition-transform duration-700"
+          />
+        </div>
+      )}
 
       <div className="min-h-screen flex items-center justify-center p-2 sm:p-4 font-mono text-white select-none z-10 relative">
         <div className="w-full max-w-sm bg-[#121316] rounded-[2.5rem] p-5 shadow-[0_0_50px_rgba(0,0,0,0.95)] border border-gray-800/80 relative overflow-hidden">
-          
-          {/* Barre du haut : Modes & Outils */}
+
           <div className="flex justify-between items-center mb-3 relative z-10">
             <div className="flex gap-1 bg-[#1a1b20] p-1 rounded-lg border border-gray-800">
               <button
@@ -352,7 +378,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Sélecteur de Difficulté */}
           <div className="grid grid-cols-3 gap-1 mb-3 bg-[#18191e] p-1 rounded-xl border border-gray-800/80 text-[11px] relative z-10">
             {Object.keys(DIFFICULTIES).map((k) => (
               <button
@@ -367,7 +392,6 @@ export default function App() {
             ))}
           </div>
 
-          {/* Modal Stats */}
           {showStats && (
             <div className="mb-4 p-3 bg-black/90 border border-gray-800 rounded-2xl text-center space-y-2 relative z-20">
               <h3 className="text-xs font-bold text-gray-300 uppercase tracking-widest">Statistiques</h3>
@@ -389,7 +413,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Scanner Barcode Cyberpunk */}
           <div className="mb-4 relative flex justify-center py-2 px-3 bg-black/70 rounded-2xl border border-gray-800/80 overflow-hidden h-16 items-center">
             <div className="flex gap-1 items-center opacity-85 h-12">
               {[2,1,3,1,1,2,4,1,2,1,3,2,1,1,4,2,1,3,1,2,1,4,1,2,3,1,2,1,1,3].map((w, i) => (
@@ -399,7 +422,6 @@ export default function App() {
             <div className={laserClasses} />
           </div>
 
-          {/* Grille des essais */}
           <div className="space-y-1.5 mb-3 relative z-10">
             {Array.from({ length: diffConfig.maxAttempts }).map((_, rowIdx) => {
               const isCurrentRow = rowIdx === attempts.length;
@@ -423,7 +445,6 @@ export default function App() {
                       }
                     } else if (isCurrentRow) {
                       if (isDecoding) {
-                        // Effet Hacker Matrix
                         char = scrambleKey[colIdx] || Math.floor(Math.random()*10);
                         cellStyle = 'border-cyan-400 text-cyan-400 bg-cyan-400/10 shadow-[0_0_15px_rgba(34,211,238,0.4)] font-black scale-[1.02]';
                       } else {
@@ -450,10 +471,9 @@ export default function App() {
             })}
           </div>
 
-          {/* Section Indices Mathématiques */}
           <div className="bg-[#17181c] p-3 rounded-2xl mb-3 border border-gray-800/80 shadow-inner relative z-10">
             <h2 className="text-[10px] font-bold text-gray-400 mb-1.5 flex items-center gap-1 tracking-wider uppercase">
-              <Terminal size={12} className={laserStatus === 'decoding' ? 'text-cyan-400' : 'text-neon-green'} /> 
+              <Terminal size={12} className={laserStatus === 'decoding' ? 'text-cyan-400' : 'text-neon-green'} />
               INDICES ({revealedClues.length}/{allClues.length})
             </h2>
             <ul className="space-y-1 text-xs text-gray-300">
@@ -466,7 +486,6 @@ export default function App() {
             </ul>
           </div>
 
-          {/* Clavier ou Panneau de Victoire / Défaite */}
           {gameStatus !== 'playing' ? (
             <div className="p-3 rounded-2xl border mb-1 text-center bg-[#17181c] border-gray-800 relative z-10">
               {gameStatus === 'won' ? (
